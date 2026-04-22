@@ -1,0 +1,30 @@
+# Deps pip-installed at runtime per Python version
+.vendor/
+
+# Environment variables, must not be published
+.envrc
+.env
+
+# Others
+scratch/
+__pycache__/
+*.pyc
+
+# Creds / Env
+.env
+credentials/
+creds/
+credentials
+credentials.env
+credentials.txt
+credentials.json
+credentials.yaml
+credentials.yml
+credentials.xml
+credentials.csv
+credentials.tsv
+credentials.ini
+credentials.toml
+credentials.yaml
+credentials.yml
+credentials.rtf

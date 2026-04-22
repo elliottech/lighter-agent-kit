@@ -1,0 +1,24 @@
+aiohappyeyeballs==2.6.1
+aiohttp==3.13.5
+aiohttp-retry==2.9.1
+aiosignal==1.4.0
+annotated-types==0.7.0
+async-timeout==5.0.1
+attrs==26.1.0
+certifi==2026.2.25
+charset-normalizer==3.4.7
+frozenlist==1.8.0
+idna==3.11
+lighter-sdk @ git+https://github.com/elliottech/lighter-python.git@4fedf1648ea032dd9437d6c6e82b0533eadc3c4c
+multidict==6.7.1
+propcache==0.4.1
+pydantic==2.12.5
+pydantic_core==2.41.5
+python-dateutil==2.9.0.post0
+requests==2.32.5
+six==1.17.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+urllib3==2.0.7
+websockets==15.0.1
+yarl==1.22.0
