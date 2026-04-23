@@ -83,6 +83,8 @@ Generate a key at [app.lighter.xyz/apikeys](https://app.lighter.xyz/apikeys) —
 
 It prompts for your L1 address, resolves the account index via Lighter's API, reads your API private key, and writes `~/.lighter/lighter-agent-kit/credentials` at mode 0600. Re-run it any time to rotate keys or switch accounts.
 
+The credentials are stored at `~/.lighter/lighter-agent-kit/credentials` and can be accessed by both project and system-wide installs.
+
 For CI or manual setup, export the values directly:
 
 ```bash
