@@ -1,11 +1,10 @@
 # Lighter Agent Kit
 
 [![Release](https://img.shields.io/github/v/release/elliottech/lighter-agent-kit?display_name=tag)](https://github.com/elliottech/lighter-agent-kit/releases)
-[![License](https://img.shields.io/github/license/elliottech/lighter-agent-kit)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Linux%20x86__64%20%7C%20Linux%20arm64-0A7B83)](#install)
 [![Python](https://img.shields.io/badge/python-3.9%2B-3776AB?logo=python&logoColor=white)](#install)
 
-A skill that lets AI agents trade on [Lighter](https://lighter.xyz). Install it into Claude Code, Cursor, Codex, or any agent that implements the [agentskills.io](https://agentskills.io) spec, then interact with it in natural language.
+A skill that lets AI agents trade on [Lighter](https://lighter.xyz). Install it into Claude Code, Cursor, Codex, Devin, or any agent that implements the [agentskills.io](https://agentskills.io) spec, then interact with it in natural language.
 
 Install in one-line:
 ```bash
