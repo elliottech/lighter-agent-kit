@@ -20,7 +20,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _cli import JsonArgumentParser, error, output  # noqa: E402
 from _paths import paper_state_path  # noqa: E402
-from _sdk import DEFAULT_HOST, ensure_lighter, get_config_value  # noqa: E402
+from _sdk import DEFAULT_HOST, ensure_lighter, get_config_value, tag_api_client  # noqa: E402
 from _symbols import normalize_side, resolve_symbol  # noqa: E402
 
 ensure_lighter()
@@ -375,6 +375,7 @@ async def _run_read(operation, *, refresh=True):
     async with lighter.ApiClient(
         configuration=lighter.Configuration(host=host),
     ) as api_client:
+        tag_api_client(api_client)
         paper = _hydrate_paper_client(api_client, tier_enum, account, configs)
         if refresh:
             _, failures = await _refresh_position_markets(paper)
@@ -397,6 +398,7 @@ async def _run_with_paper_market(symbol, operation=None):
     async with lighter.ApiClient(
         configuration=lighter.Configuration(host=host),
     ) as api_client:
+        tag_api_client(api_client)
         try:
             market_id, market_type, _ = await resolve_symbol(
                 symbol,

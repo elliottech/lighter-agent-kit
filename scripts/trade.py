@@ -13,7 +13,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _cli import JsonArgumentParser, error, output  # noqa: E402
-from _sdk import DEFAULT_HOST, ensure_lighter, get_config_value  # noqa: E402
+from _sdk import DEFAULT_HOST, ensure_lighter, get_config_value, tag_api_client  # noqa: E402
 from _symbols import normalize_side, resolve_symbol, side_to_is_ask  # noqa: E402
 
 ensure_lighter()
@@ -323,6 +323,7 @@ async def build_signer_client():
             account_index=account_index,
             api_private_keys={api_key_index: api_private_key.expose()},
         )
+        tag_api_client(client.api_client)
     except Exception as e:
         error(f"failed to initialize signer: {clean_sdk_error(str(e))}")
 
