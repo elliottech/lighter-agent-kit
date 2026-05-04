@@ -40,6 +40,7 @@ def _load_trade_module():
     sdk_mod.DEFAULT_HOST = "https://mainnet.zklighter.elliot.ai"
     sdk_mod.ensure_lighter = lambda: None
     sdk_mod.get_config_value = lambda *args, **kwargs: None
+    sdk_mod.tag_api_client = lambda api_client: api_client
 
     symbols_mod = types.ModuleType("_symbols")
     symbols_mod.normalize_side = lambda side, market_type: side

@@ -18,6 +18,7 @@ from _sdk import (  # noqa: E402
     ensure_lighter,
     get_config_value,
     resolve_with_source,
+    tag_api_client,
 )
 from _symbols import resolve_symbol  # noqa: E402
 
@@ -402,6 +403,7 @@ async def get_auth_token(host):
             account_index=account_index,
             api_private_keys={api_key_index: api_private_key.expose()},
         )
+        tag_api_client(signer.api_client)
     except Exception as e:
         error(f"failed to initialize signer for auth token: {e}")
     try:
@@ -487,6 +489,7 @@ async def run(args):
 
     try:
         async with lighter.ApiClient(configuration=config) as client:
+            tag_api_client(client)
             group = args.group
             action = args.action
 
