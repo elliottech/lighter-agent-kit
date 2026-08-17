@@ -32,3 +32,9 @@ def symbol_cache_path(host: str):
     normalized = host.strip().lower().rstrip("/")
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
     return lighter_agent_kit_data_dir() / f"symbol-cache-{digest}.json"
+
+
+def asset_cache_path(host: str):
+    normalized = host.strip().lower().rstrip("/")
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+    return lighter_agent_kit_data_dir() / f"asset-cache-{digest}.json"

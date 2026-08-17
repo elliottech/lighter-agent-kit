@@ -1,7 +1,8 @@
 ---
 name: lighter-agent-kit
 description: >-
-  Query Lighter DEX market data (orderbooks, trades, candles, funding rates)
+  Query Lighter DEX market data on Lighter and Robinhood Lighter (orderbooks,
+  trades, candles, funding rates)
   and execute trades (limit and market orders, modify, cancel, leverage,
   margin, withdraw, spot and perp transfers) on perpetual and spot markets.
   Use when the user mentions Lighter, zkLighter, perps, perpetual futures,
@@ -10,13 +11,12 @@ allowed-tools:
   - Bash
 compatibility: >-
   Requires Python 3.9+. Supported platforms: macOS arm64, Linux x86_64,
-  Linux arm64. Intel Macs (darwin-x86_64) are NOT supported because
-  lighter-sdk does not ship a native signer binary for that target.
+  Linux arm64. Intel Macs (darwin-x86_64) are not supported by this kit.
 ---
 
 # Lighter Agent Kit
 
-Trade on Lighter — a ZK-rollup perpetual futures and spot exchange.
+Trade on Lighter or its Robinhood Chain deployment using the same commands.
 
 Scripts live in this skill's `scripts/` directory. Read commands use `query.py`, write commands use `trade.py`. Every command prints structured JSON to stdout. Errors are always in JSON as `{"error": "..."}`.
 
@@ -31,16 +31,16 @@ Copy this folder to one of the standard Claude Code skill locations:
 - **Personal (all projects):** `~/.claude/skills/lighter-agent-kit/`
 - **Project-level (this repo only):** `.claude/skills/lighter-agent-kit/`
 
-On first call, `lighter-sdk` and its transitive deps will be installed into `<skill>/.vendor/pyX.Y/`. Every version is pinned by `requirements.lock`. Supported targets are Apple Silicon Macs plus Linux x86_64/arm64. **Intel** Macs are not supported because lighter-sdk doesn't ship a darwin-x86_64 signer binary.
+On first call, `lighter-sdk` and its transitive deps will be installed into `<skill>/.vendor/pyX.Y/`. Every version is pinned by `requirements.lock`. Supported targets are Apple Silicon Macs plus Linux x86_64/arm64. **Intel Macs are not supported by this kit.**
 
-Requires network egress to `mainnet.zklighter.elliot.ai` / `testnet.zklighter.elliot.ai`, `pypi.org` / `files.pythonhosted.org`, and `github.com` (pip clones the pinned `lighter-sdk` build from GitHub). On Claude.ai's sandbox the default egress allowlist doesn't include `github.com` — you'll need to expand it before first run.
+Requires network egress to the selected Lighter host (`mainnet.zklighter.elliot.ai`, `testnet.zklighter.elliot.ai`, `api.rh.lighter.xyz`, or `api.rh-testnet.lighter.xyz`), `pypi.org` / `files.pythonhosted.org`, and `github.com` (pip clones the pinned `lighter-sdk` build from GitHub). On Claude.ai's sandbox the default egress allowlist doesn't include `github.com` — you'll need to expand it before first run.
 
 Read commands work with no credentials. Write commands and account-private reads will first check environment variables and then your personal credentials file — see [references/env-vars.md](references/env-vars.md).
 
 ## How to Handle User Requests
 
-1. **Symbol convention: perp-bare, spot-pair.** Perp markets use bare tickers (`BTC`, `ETH`, `SOL`, `LIT`); spot markets use quote-qualified pairs (`ETH/USDC`, `LIT/USDC`, `LINK/USDC`). The presence of `/` is the single discriminator — no `--market_type` flag is needed on symbol-resolved commands. Numeric `market_index` is also accepted as an escape hatch.
-2. **Symbol resolution is automatic.** Symbols resolve from the live order-books API and are cached on disk for 5 minutes per host, so `query.py`, `trade.py`, and `paper.py` share the same market map across calls. Only when the user says something you can't confidently map (e.g. "brent oil", "gold", "silver"), run `python3 scripts/query.py market list --search <substring> [--market_type perp|spot]` first to discover it. These usually appear under ticker-style symbols like `BRENTOIL`, `XAU`, and `XAG`.
+1. **Symbol convention: perp-bare, spot-pair.** Perp markets use bare tickers (`BTC`, `ETH`, `SOL`, `LIT`); spot markets use quote-qualified pairs (`ETH/USDC` on Lighter, `AAPL/USDG` on Robinhood Lighter). The presence of `/` is the single discriminator — no `--market_type` flag is needed on symbol-resolved commands. Numeric `market_index` is also accepted as an escape hatch.
+2. **Symbol resolution is automatic.** Market symbols resolve from the live order-books API and are cached on disk for 5 minutes per host, so `query.py`, `trade.py`, and `paper.py` share the same market map across calls. Fund assets resolve against the selected deployment; `collateral` aliases its quote asset when unambiguous. Only when the user says something you can't confidently map (e.g. "brent oil", "gold", "silver"), run `python3 scripts/query.py market list --search <substring> [--market_type perp|spot]` first to discover it. These usually appear under ticker-style symbols like `BRENTOIL`, `XAU`, and `XAG`.
 3. **Side accepts both forms.** `--side buy|sell|long|short` — both are accepted on perp and spot. Normalized internally to canonical (long/short for perp, buy/sell for spot).
 4. **Filter at the source on high-cardinality reads.** `market funding`, `market stats`, and `market info` accept `--symbol` / `--market_index` / `--exchange` — always pass them when you only need one row.
 5. Run the matching script: `python3 scripts/query.py <group> <action> ARGS` for reads, `python3 scripts/trade.py <group> <action> ARGS` for writes. Paths are relative to this skill's directory.
@@ -109,18 +109,32 @@ See [references/schemas-read.md](references/schemas-read.md) for the full respon
 | `order cancel_all` | Cancel every open order across every market (no args). |
 | `order close_all [--slippage N] [--with_cancel_all] [--preview]` | **High-risk.** Flattens every open position with reduce-only market orders — realizes PnL on every market at once. Always run `--preview` first and get explicit user approval before the real call; do not auto-infer intent from phrases like "clean up" or "reset". `--with_cancel_all` also kills TP/SL brackets. When combined with `--preview`, the response includes a note that cancel-all would run first, but `would_close[]` still lists positions only. |
 | `position leverage <symbol> --leverage N [--margin_mode cross\|isolated]` | Set leverage. Default `cross`. |
-| `position margin <symbol> --amount N --direction add\|remove` | Amount is USDC; only valid on isolated positions. |
-| `funds withdraw --asset A --amount N [--route perp\|spot]` | Default route `perp`. Assets: usdc, eth, lit, link, uni, aave, sky, ldo. This creates a withdrawal request; funds may move into a pending / claim flow and not appear in the wallet instantly. |
-| `funds transfer --asset A --amount N --from_route perp\|spot --to_route perp\|spot` | Moves assets between your own spot and perp buckets. No L1 signature, no cross-account routing. |
+| `position margin <symbol> --amount N --direction add\|remove` | Amount is deployment collateral (USDC or USDG); only valid on isolated positions. |
+| `account mode --mode classic\|unified` | **High-risk.** Changes account-wide margin behavior. Inspect `query.py account info` and get explicit user approval first. |
+| `account collateral --asset A --mode enabled\|disabled` | **High-risk.** Changes whether an eligible asset contributes collateral in Unified mode. Inspect the account and get explicit user approval first. |
+| `funds withdraw --asset A --amount N [--route perp\|spot]` | Default route `perp`. Accepts any deployment asset symbol or numeric asset ID; `collateral` aliases the quote asset when it is unambiguous. This creates a withdrawal request; funds may move into a pending / claim flow and not appear in the wallet instantly. |
+| `funds transfer --asset A --amount N --from_route perp\|spot --to_route perp\|spot` | Moves any deployment asset between your own spot and perp buckets. No L1 signature, no cross-account routing. |
 
 `order limit` and `order market` return a `client_order_index` — **save it**; it is the handle for later `order modify` / `order cancel`.
 
-**Example — move USDC from perp to spot to fund a spot buy:**
+**Example — move deployment collateral from perp to spot to fund a spot buy:**
 
 ```bash
-python3 scripts/trade.py funds transfer --asset usdc --amount 250 \
+python3 scripts/trade.py funds transfer --asset collateral --amount 250 \
     --from_route perp --to_route spot
 ```
+
+**Example — enable SPY collateral on Robinhood Lighter:**
+
+```bash
+python3 scripts/query.py account info
+python3 scripts/trade.py account mode --mode unified
+python3 scripts/query.py account info  # wait until account_trading_mode is 1
+python3 scripts/trade.py account collateral --asset SPY --mode enabled
+python3 scripts/query.py account info
+```
+
+The two write commands above require separate, explicit user approval. `account collateral --mode enabled` rejects assets the selected deployment does not mark collateral-eligible and rejects Classic-mode accounts.
 
 Every command supports `--help`. See [references/schemas-write.md](references/schemas-write.md) for the response envelope, precision echoback, and error-code table.
 
@@ -192,10 +206,11 @@ See [references/env-vars.md](references/env-vars.md). TL;DR: public reads need n
 ## Safety Notes
 
 - Write commands sign and broadcast immediately. Claude Code's per-tool approval prompt is the user's confirmation step — the user sees the exact command before it runs.
-- `funds withdraw` and order amounts are validated client-side (`> 0`, market exists, precision fits).
+- `funds withdraw`, `funds transfer`, and order amounts are validated client-side (`> 0`, deployment-reported minimums, market/asset exists, precision fits).
 - **`funds withdraw` is not necessarily an instant wallet credit.** A successful response means the withdrawal request was accepted by Lighter. The balance may leave the selected route immediately, while the actual funds move through Lighter's withdrawal / pending-balance / claim flow before showing up in the user's wallet.
 - **`order close_all` is a high-impact, account-wide write.** Treat it like `funds withdraw`: require explicit user approval before running the non-preview form, always run `--preview` first and show the plan to the user, and never infer intent from vague prompts ("tidy up", "reset my account", "start fresh"). Ask the user to confirm in plain language before the real call.
-- Mainnet and testnet are toggled with `LIGHTER_HOST`. Use `https://testnet.zklighter.elliot.ai` for testing before mainnet.
+- **`account mode` and `account collateral` change account-wide risk configuration.** Read `query.py account info`, explain the resulting mode/collateral change, and get explicit user approval before each write. Verify with `account info` afterward.
+- The deployment is selected with `LIGHTER_HOST`. Use `https://testnet.zklighter.elliot.ai` or `https://api.rh-testnet.lighter.xyz` for testing before the corresponding mainnet.
 - **First call installs `lighter-sdk` into `<skill>/.vendor/pyX.Y/`.** Expect ~15–40s on a cold session; subsequent calls are instant. Nothing is written outside the skill folder, so uninstalling is `rm -rf <skill>/.vendor`.
 
 ### Credential Security — MANDATORY
@@ -215,6 +230,7 @@ Never write your own env-var probe (`echo $...`, `python3 -c "print(os.environ.g
 |---|---|---|
 | Order ops | create / modify / cancel / cancel_all / close_all, leverage, isolated margin | Supported |
 | Self-routing | `funds transfer` between your own spot and perp buckets | Supported |
+| Unified collateral | `account mode` and per-asset `account collateral` | Supported with explicit approval |
 | Sub-account routing | `transfer` between master and sub-accounts | Not supported |
 | Cross-account transfer | `transfer` to an arbitrary destination account | Not supported — transferring to arbitrary destinations is risky for unsupervised LLMs; advise the user to do it through the web or mobile interface. |
 | API key rotation | `change_api_key` | Not supported — rotation requires `LIGHTER_ETH_PRIVATE_KEY` and a mistake locks the user out of their account; advise the user to do it through the web or mobile interface. |

@@ -673,7 +673,7 @@ async def run(args):
                     account_index = require_self_account_index()
                     result = await api.account_limits(
                         account_index=account_index,
-                        auth=auth,
+                        authorization=auth,
                     )
                     output(result.to_dict())
 
@@ -703,7 +703,7 @@ async def run(args):
                         end_timestamp=end,
                         count_back=args.count_back,
                         ignore_transfers=args.ignore_transfers or None,
-                        auth=auth,
+                        authorization=auth,
                     )
                     output(result.to_dict())
 
@@ -728,7 +728,7 @@ async def run(args):
                     result = await api.account_active_orders(
                         account_index=account_index,
                         market_id=market_id,
-                        auth=auth,
+                        authorization=auth,
                     )
                     output(result.to_dict())
 
@@ -747,7 +747,7 @@ async def run(args):
                     kwargs = {
                         "account_index": account_index,
                         "limit": args.limit,
-                        "auth": auth,
+                        "authorization": auth,
                     }
                     if market_id is not None:
                         kwargs["market_id"] = market_id

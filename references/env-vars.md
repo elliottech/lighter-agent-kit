@@ -4,7 +4,7 @@
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `LIGHTER_HOST` | No | API base URL (default: `https://mainnet.zklighter.elliot.ai`) |
+| `LIGHTER_HOST` | No | API deployment URL (default: `https://mainnet.zklighter.elliot.ai`) |
 
 ## Write commands and account-private reads
 
@@ -30,17 +30,20 @@ Paper trading does not require `LIGHTER_API_PRIVATE_KEY`, `LIGHTER_ACCOUNT_INDEX
 If required credentials are missing, the script returns a clear `{"error": "missing LIGHTER_..."}` and exits 1.
 ## Environments
 
-| Environment | `LIGHTER_HOST` value |
+| Deployment | `LIGHTER_HOST` value |
 |---|---|
-| Mainnet | `https://mainnet.zklighter.elliot.ai` (default) |
-| Testnet | `https://testnet.zklighter.elliot.ai` |
-| Staging | `https://staging.zklighter.elliot.ai` |
+| Lighter mainnet | `https://mainnet.zklighter.elliot.ai` (default) |
+| Lighter testnet | `https://testnet.zklighter.elliot.ai` |
+| Robinhood Lighter mainnet | `https://api.rh.lighter.xyz` |
+| Robinhood Lighter testnet | `https://api.rh-testnet.lighter.xyz` |
 
-Always test on testnet or staging before running mainnet writes.
+Always test on the corresponding testnet before running mainnet writes.
 
 ## Credentials
 
 Public reads need no credentials.
+
+Account indices and API keys are deployment-specific. Keep `LIGHTER_HOST`, `LIGHTER_API_PRIVATE_KEY`, `LIGHTER_ACCOUNT_INDEX`, and `LIGHTER_API_KEY_INDEX` from the same deployment.
 
 For account-private reads and write commands, you have two options:
 

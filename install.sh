@@ -765,14 +765,31 @@ setup_credentials() {
   # Network
   local network
   network=$(choose "Which network?" \
-    "Mainnet (mainnet.zklighter.elliot.ai)" \
-    "Testnet (testnet.zklighter.elliot.ai)")
+    "Lighter mainnet (mainnet.zklighter.elliot.ai)" \
+    "Lighter testnet (testnet.zklighter.elliot.ai)" \
+    "Robinhood mainnet (api.rh.lighter.xyz)" \
+    "Robinhood testnet (api.rh-testnet.lighter.xyz)")
 
-  local host
+  local host app_url api_key_url
   case "$network" in
-    "Mainnet"*) host="https://mainnet.zklighter.elliot.ai" ;;
-    "Testnet"*) host="https://testnet.zklighter.elliot.ai" ;;
+    "Lighter mainnet"*)
+      host="https://mainnet.zklighter.elliot.ai"
+      app_url="https://app.lighter.xyz"
+      ;;
+    "Lighter testnet"*)
+      host="https://testnet.zklighter.elliot.ai"
+      app_url="https://testnet.app.lighter.xyz"
+      ;;
+    "Robinhood mainnet"*)
+      host="https://api.rh.lighter.xyz"
+      app_url="https://robinhoodchain.lighter.xyz"
+      ;;
+    "Robinhood testnet"*)
+      host="https://api.rh-testnet.lighter.xyz"
+      app_url="https://rhctestnet.lighter.xyz"
+      ;;
   esac
+  api_key_url="${app_url}/apikeys"
 
   echo ""
 
@@ -794,7 +811,7 @@ setup_credentials() {
 
     if [[ -z "$accounts_raw" ]]; then
       warn "No accounts found for that address on this network."
-      info  "Make sure you have an account at app.lighter.xyz, then try again."
+      info  "Make sure you have an account at ${app_url}, then try again."
       if ! confirm "Try a different address?" "yes"; then
         return 0
       fi
@@ -826,7 +843,7 @@ setup_credentials() {
   echo ""
 
   # API key
-  info "Get your API private key at: https://app.lighter.xyz/apikeys"
+  info "Get your API private key at: ${api_key_url}"
   info "If you have chosen a subaccount, make sure to switch to the correct subaccount before generating an API key."
   echo ""
   local api_key

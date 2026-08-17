@@ -37,6 +37,8 @@ If you requested `--price 4050.567 --amount 0.00567` on a 2-decimal price / 4-de
 
 Market decimals come from the `supported_size_decimals` and `supported_price_decimals` fields in [schemas-read.md → market info](schemas-read.md#market-info). The script fetches them automatically before scaling.
 
+`account mode` adds `requested_account_trading_mode` to the success envelope. `account collateral` adds the resolved `asset`, `asset_id`, `requested_margin_mode`, and the deployment-reported `loan_to_value`. These fields describe the submitted configuration; verify the resulting account state with `query.py account info`.
+
 ---
 
 ## `order close_all`
@@ -137,6 +139,8 @@ The error message is the cleaned-up `message='...'` field from the API response.
 |---|---|
 | `not enough margin` | Account collateral too low for the requested order |
 | `not enough collateral` | Withdraw amount exceeds available balance |
+| `collateral assets require Unified trading mode` | Switch with `account mode --mode unified` before enabling the asset |
+| `not eligible for collateral` | The selected deployment does not allow this asset to contribute margin |
 | `invalid margin mode` | `position margin` called on a cross-margin position (only valid on isolated) |
 | `invalid nonce` | Transient — the signer auto-refreshes; retry once if it persists |
 | `order not found` | `order cancel` / `order modify` with a stale or wrong `--order_index` |

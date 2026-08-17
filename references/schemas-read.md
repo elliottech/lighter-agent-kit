@@ -149,6 +149,7 @@ Asks are sorted ascending (best first), bids descending (best first). Default `-
       "index": 41,
       "l1_address": "0x...",
       "account_type": 0,
+      "account_trading_mode": 1,       // 0 = Classic, 1 = Unified
       "status": 0,
       "collateral": "0.000000",
       "available_balance": "0.000000",
@@ -171,7 +172,14 @@ Asks are sorted ascending (best first), bids descending (best first). Default `-
         }
       ],
       "assets": [
-        {"symbol": "ETH", "asset_id": 1, "balance": "3.00000000", "locked_balance": "0.00000000"}
+        {
+          "symbol": "SPY",
+          "asset_id": 20,
+          "balance": "3.000000",
+          "locked_balance": "0.000000",
+          "margin_balance": "1.500000",
+          "margin_mode": "enabled"
+        }
       ]
     }
   ]
@@ -179,6 +187,8 @@ Asks are sorted ascending (best first), bids descending (best first). Default `-
 ```
 
 Looking up by `l1_address` returns the same shape but may include multiple accounts (master + sub-accounts).
+
+`account_trading_mode` is account-wide. In Unified mode, each `assets[]` row's `margin_mode` reports whether that asset is enabled as collateral for this account; system-wide eligibility still comes from the deployment's asset metadata.
 
 `positions[]` is filtered to currently-open positions (non-zero size) by default. The Lighter API actually returns one row per market the account has ever touched, keeping cumulative `realized_pnl` and `total_funding_paid_out` server-side even after a position is flat. Pass `--include_zero_positions` to get that full list — needed for lifetime-PnL analytics, funding audits, and tax exports; skip it for any "what am I holding right now" read.
 
