@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Linux%20x86__64%20%7C%20Linux%20arm64-0A7B83)](#install)
 [![Python](https://img.shields.io/badge/python-3.9%2B-3776AB?logo=python&logoColor=white)](#install)
 
-A skill that lets AI agents trade on [Lighter](https://lighter.xyz). Install it into Claude Code, Cursor, Codex, Devin, or any agent that implements the [agentskills.io](https://agentskills.io) spec, then interact with it in natural language.
+A skill that lets AI agents trade on [Lighter](https://lighter.xyz), including its Robinhood Chain deployment. Install it into Claude Code, Cursor, Codex, Devin, or any agent that implements the [agentskills.io](https://agentskills.io) spec, then interact with it in natural language.
 
 Install in one-line:
 ```bash
@@ -36,12 +36,13 @@ The agent resolves symbols, fetches market metadata and dispatches the appropria
 | Paper trading (local simulation against live Lighter order books)                 |
 | Account balances, positions, open orders, order history, PnL                      |
 | Limit and market orders, modify, cancel, leverage, margin changes                 |
-| Withdrawals and transfers between perp/spot collateral buckets                    |
+| Withdrawals and asset transfers between perp/spot routes                          |
+| Unified account mode and eligible per-asset collateral configuration              |
 
 Both Lighter market types are supported:
 
 - **Perpetuals** — BTC, ETH, SOL, LIT, and more. Cross or isolated margin with leverage and funding.
-- **Spot** — `ETH/USDC`, `LIT/USDC`, `LINK/USDC`, and others. Spot symbols are distinguished by the `/` separator.
+- **Spot** — quote-qualified pairs such as `ETH/USDC` on Lighter or `AAPL/USDG` on Robinhood Lighter. Spot symbols are distinguished by the `/` separator.
 
 Regulatory status of cryptocurrency trading varies by jurisdiction. It is your responsibility to comply with applicable laws.
 
@@ -74,13 +75,13 @@ Project-scoped install: replace `~/.agents` with `.agents` and `~/.claude` with 
 
 Public reads work without credentials. Account-private reads and writes — orders, withdrawals, transfers — require a Lighter API key.
 
-Generate a key at [app.lighter.xyz/apikeys](https://app.lighter.xyz/apikeys) — the private key is shown only once. Then run the configuration helper from the install directory:
+Generate a key on the deployment you want to use — [Lighter](https://app.lighter.xyz/apikeys) or [Robinhood Lighter](https://robinhoodchain.lighter.xyz/apikeys). The private key is shown only once. Then run the configuration helper from the install directory:
 
 ```bash
 ./lighter-config
 ```
 
-It prompts for your L1 address, resolves the account index via Lighter's API, reads your API private key, and writes `~/.lighter/lighter-agent-kit/credentials` at mode 0600. Re-run it any time to rotate keys or switch accounts.
+It prompts for the deployment and your L1 address, resolves the account index via that deployment's API, reads your API private key, and writes `~/.lighter/lighter-agent-kit/credentials` at mode 0600. Re-run it any time to rotate keys or switch accounts or deployments.
 
 The credentials are stored at `~/.lighter/lighter-agent-kit/credentials` and can be accessed by both project and system-wide installs.
 
@@ -92,7 +93,7 @@ export LIGHTER_ACCOUNT_INDEX=<account index>
 export LIGHTER_API_KEY_INDEX=<key index>
 ```
 
-Environment variables take precedence over the credentials file. For testnet, add `export LIGHTER_HOST=https://testnet.zklighter.elliot.ai`. Full configuration reference: [references/env-vars.md](references/env-vars.md).
+Environment variables take precedence over the credentials file. `LIGHTER_HOST` selects the deployment; for example, use `https://api.rh.lighter.xyz` for Robinhood Lighter. Account indices and API keys are deployment-specific, so always switch the full credential bundle together. Full configuration reference: [references/env-vars.md](references/env-vars.md).
 
 Never commit private keys to any repository.
 
@@ -162,9 +163,12 @@ Amounts and prices are human units; the script loads market metadata and scales 
 | `order close_all [--slippage N] [--with_cancel_all] [--preview]`  | Flatten every open position                 |
 | `position leverage <symbol> --leverage N`                         | `--margin_mode cross\|isolated`             |
 | `position margin <symbol> --amount N --direction add\|remove`     | Adjust isolated margin                      |
-| `funds withdraw --asset A --amount N`                             | `--route perp\|spot`                        |
-| `funds transfer --asset A --amount N --from_route X --to_route Y` | Between your perp and spot collateral       |
+| `account mode --mode classic\|unified`                            | Change the account trading mode             |
+| `account collateral --asset A --mode enabled\|disabled`           | Configure an eligible collateral asset      |
+| `funds withdraw --asset A --amount N [--route perp\|spot]`       | Asset symbol or numeric asset ID            |
+| `funds transfer --asset A --amount N --from_route X --to_route Y` | Move an asset between perp and spot routes  |
 
+Fund commands resolve asset symbols or numeric IDs against the selected deployment; `collateral` aliases its spot quote asset when unambiguous (USDC or USDG).
 
 `--side` accepts `buy`, `sell`, `long`, or `short` on both market types. Order-creation calls return a `client_order_index` — retain it as the handle for subsequent modify and cancel calls.
 

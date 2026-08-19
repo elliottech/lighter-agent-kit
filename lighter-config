@@ -136,14 +136,31 @@ main() {
   fi
 
   # Network
-  local network host
+  local network host app_url api_key_url
   network=$(pick "Which network?" \
-    "Mainnet (mainnet.zklighter.elliot.ai)" \
-    "Testnet (testnet.zklighter.elliot.ai)")
+    "Lighter mainnet (mainnet.zklighter.elliot.ai)" \
+    "Lighter testnet (testnet.zklighter.elliot.ai)" \
+    "Robinhood mainnet (api.rh.lighter.xyz)" \
+    "Robinhood testnet (api.rh-testnet.lighter.xyz)")
   case "$network" in
-    Mainnet*) host="https://mainnet.zklighter.elliot.ai" ;;
-    Testnet*) host="https://testnet.zklighter.elliot.ai" ;;
+    "Lighter mainnet"*)
+      host="https://mainnet.zklighter.elliot.ai"
+      app_url="https://app.lighter.xyz"
+      ;;
+    "Lighter testnet"*)
+      host="https://testnet.zklighter.elliot.ai"
+      app_url="https://testnet.app.lighter.xyz"
+      ;;
+    "Robinhood mainnet"*)
+      host="https://api.rh.lighter.xyz"
+      app_url="https://robinhoodchain.lighter.xyz"
+      ;;
+    "Robinhood testnet"*)
+      host="https://api.rh-testnet.lighter.xyz"
+      app_url="https://rhctestnet.lighter.xyz"
+      ;;
   esac
+  api_key_url="${app_url}/apikeys"
   echo ""
 
   # L1 address → account index lookup
@@ -196,7 +213,7 @@ main() {
   echo ""
 
   # API key (hidden input)
-  info "Get your API private key at: https://app.lighter.xyz/apikeys"
+  info "Get your API private key at: ${api_key_url}"
   info "If you chose a sub-account, switch to it before generating a key."
   echo ""
   printf "${BOLD}API Private Key${RESET} ${DIM}(input hidden)${RESET}: "

@@ -758,7 +758,7 @@ def build_parser():
     # -- Paper-only flat commands --
 
     p = sub.add_parser("init", help="Create a new paper trading account", epilog=_PAPER_EPILOG)
-    p.add_argument("--collateral", type=float, default=10_000, help="Starting USDC (default: 10000)")
+    p.add_argument("--collateral", type=float, default=10_000, help="Starting collateral (default: 10000)")
     p.add_argument("--tier", default="premium", choices=TIER_CHOICES, help="Fee tier (default: premium)")
 
     p = sub.add_parser("reset", help="Reset paper account", epilog=_PAPER_EPILOG)

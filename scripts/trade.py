@@ -10,8 +10,10 @@ import os
 import re
 import sys
 import time
+from decimal import Decimal, DecimalException
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _assets import resolve_asset  # noqa: E402
 from _cli import JsonArgumentParser, error, output  # noqa: E402
 from _sdk import DEFAULT_HOST, ensure_lighter, get_config_value  # noqa: E402
 from _symbols import normalize_side, resolve_symbol, side_to_is_ask  # noqa: E402
@@ -33,18 +35,8 @@ def clean_sdk_error(msg):
     return msg
 
 
-ASSETS = {
-    "usdc": "ASSET_ID_USDC",
-    "eth": "ASSET_ID_ETH",
-    "lit": "ASSET_ID_LIT",
-    "link": "ASSET_ID_LINK",
-    "uni": "ASSET_ID_UNI",
-    "aave": "ASSET_ID_AAVE",
-    "sky": "ASSET_ID_SKY",
-    "ldo": "ASSET_ID_LDO",
-}
-
 SIDE_CHOICES = ["buy", "sell", "long", "short"]
+MAX_ASSET_UNITS = 2**63 - 1
 
 _WRITE_EPILOG = (
     "Response shape: references/schemas-write.md (common envelope, "
@@ -248,8 +240,29 @@ def build_parser():
         "symbol",
         help="Perp (e.g. BTC) or spot pair (e.g. ETH/USDC), or numeric market_index",
     )
-    p.add_argument("--amount", type=float, required=True, help="USDC amount")
+    p.add_argument("--amount", type=float, required=True, help="Collateral amount")
     p.add_argument("--direction", required=True, choices=["add", "remove"])
+
+    # -------------------------------------------------------------------------
+    # account <action>
+    # -------------------------------------------------------------------------
+    account = sub.add_parser("account", help="Account configuration")
+    account_sub = account.add_subparsers(dest="action", required=True)
+
+    p = account_sub.add_parser(
+        "mode",
+        help="Switch between Classic and Unified trading",
+        epilog=_WRITE_EPILOG,
+    )
+    p.add_argument("--mode", required=True, choices=["classic", "unified"])
+
+    p = account_sub.add_parser(
+        "collateral",
+        help="Enable or disable an eligible asset as collateral",
+        epilog=_WRITE_EPILOG,
+    )
+    p.add_argument("--asset", required=True, help="Asset symbol or numeric asset ID")
+    p.add_argument("--mode", required=True, choices=["enabled", "disabled"])
 
     # -------------------------------------------------------------------------
     # funds <action>
@@ -262,8 +275,8 @@ def build_parser():
         help="Withdraw assets",
         epilog=_WRITE_EPILOG,
     )
-    p.add_argument("--asset", required=True, choices=list(ASSETS.keys()))
-    p.add_argument("--amount", type=float, required=True)
+    p.add_argument("--asset", required=True, help="Asset symbol or numeric asset ID")
+    p.add_argument("--amount", required=True)
     p.add_argument(
         "--route",
         default="perp",
@@ -276,8 +289,8 @@ def build_parser():
         help="Move an asset between spot and perp routes on the same account",
         epilog=_WRITE_EPILOG,
     )
-    p.add_argument("--asset", required=True, choices=list(ASSETS.keys()))
-    p.add_argument("--amount", type=float, required=True, help="Amount in human units")
+    p.add_argument("--asset", required=True, help="Asset symbol or numeric asset ID")
+    p.add_argument("--amount", required=True, help="Amount in human units")
     p.add_argument("--from_route", required=True, choices=["perp", "spot"])
     p.add_argument("--to_route", required=True, choices=["perp", "spot"])
 
@@ -882,17 +895,104 @@ async def cmd_position_margin(client, args, market_index, market_type):
     output(tx_response(tx, response))
 
 
-async def cmd_funds_withdraw(client, args):
-    if args.amount <= 0:
-        error("--amount must be positive")
+def parse_scaled_amount(amount, decimals, symbol):
+    try:
+        requested = Decimal(str(amount))
+        scaled = requested * (10**decimals)
+    except (DecimalException, TypeError, ValueError):
+        error("--amount must be a decimal number")
 
-    asset_id = getattr(client, ASSETS[args.asset])
+    if not requested.is_finite() or requested <= 0:
+        error("--amount must be positive")
+    if scaled != scaled.to_integral_value():
+        error(f"--amount supports at most {decimals} decimals for {symbol}")
+    if scaled > MAX_ASSET_UNITS:
+        error("--amount is too large")
+    return requested
+
+
+def validate_asset_amount(asset, amount, minimum_field, operation):
+    requested = parse_scaled_amount(amount, asset.decimals, asset.symbol)
+    try:
+        minimum = Decimal(getattr(asset, minimum_field))
+    except (DecimalException, TypeError, ValueError):
+        error(f"invalid amount metadata for {asset.symbol}")
+    if not minimum.is_finite() or minimum < 0:
+        error(f"invalid amount metadata for {asset.symbol}")
+    if requested < minimum:
+        error(
+            f"--amount must be at least {minimum} {asset.symbol} "
+            f"for {operation}"
+        )
+    return requested
+
+
+async def cmd_account_mode(client, args):
+    account_trading_mode = 1 if args.mode == "unified" else 0
+    tx, response, err = await client.update_account_config(account_trading_mode)
+    if err is not None:
+        error(f"account mode failed: {clean_sdk_error(err)}")
+    result = tx_response(tx, response)
+    result["requested_account_trading_mode"] = args.mode
+    output(result)
+
+
+async def cmd_account_collateral(client, args):
+    asset = await resolve_asset(client, args.asset)
+    if args.mode == "enabled" and asset.margin_mode != "enabled":
+        error(f"{asset.symbol} is not eligible for collateral on this deployment")
+
+    if args.mode == "enabled":
+        account_api = lighter.AccountApi(client.api_client)
+        account = await account_api.account(
+            by="index",
+            value=str(client.account_index),
+        )
+        if not account.accounts:
+            error(f"account {client.account_index} not found")
+        if account.accounts[0].account_trading_mode != 1:
+            error(
+                "collateral assets require Unified trading mode; run "
+                "`trade.py account mode --mode unified` first"
+            )
+
+    asset_margin_mode = (
+        client.ASSET_MARGIN_MODE_ENABLED
+        if args.mode == "enabled"
+        else client.ASSET_MARGIN_MODE_DISABLED
+    )
+    tx, response, err = await client.update_account_asset_config(
+        asset_index=asset.asset_id,
+        asset_margin_mode=asset_margin_mode,
+    )
+    if err is not None:
+        error(f"account collateral failed: {clean_sdk_error(err)}")
+    result = tx_response(tx, response)
+    result.update(
+        {
+            "asset": asset.symbol,
+            "asset_id": asset.asset_id,
+            "requested_margin_mode": args.mode,
+            "loan_to_value": asset.loan_to_value,
+        }
+    )
+    output(result)
+
+
+async def cmd_funds_withdraw(client, args):
+    asset = await resolve_asset(client, args.asset)
+    amount = validate_asset_amount(
+        asset,
+        args.amount,
+        "min_withdrawal_amount",
+        "withdrawal",
+    )
     route_type = client.ROUTE_PERP if args.route == "perp" else client.ROUTE_SPOT
 
     tx, response, err = await client.withdraw(
-        asset_id=asset_id,
+        asset_id=asset.asset_id,
         route_type=route_type,
-        amount=args.amount,
+        amount=amount,
     )
     if err is not None:
         error(f"funds withdraw failed: {clean_sdk_error(err)}")
@@ -900,21 +1000,25 @@ async def cmd_funds_withdraw(client, args):
 
 
 async def cmd_funds_transfer(client, args):
-    if args.amount <= 0:
-        error("--amount must be positive")
     if args.from_route == args.to_route:
         error("--from_route and --to_route must differ")
 
-    asset_id = getattr(client, ASSETS[args.asset])
+    asset = await resolve_asset(client, args.asset)
+    amount = validate_asset_amount(
+        asset,
+        args.amount,
+        "min_transfer_amount",
+        "transfer",
+    )
     route_from = client.ROUTE_PERP if args.from_route == "perp" else client.ROUTE_SPOT
     route_to = client.ROUTE_PERP if args.to_route == "perp" else client.ROUTE_SPOT
 
     tx, response, err = await client.transfer_same_master_account(
         to_account_index=client.account_index,
-        asset_id=asset_id,
+        asset_id=asset.asset_id,
         route_from=route_from,
         route_to=route_to,
-        amount=args.amount,
+        amount=amount,
         fee=0,
         memo="0" * 64,
     )
@@ -937,6 +1041,8 @@ SYMBOL_COMMANDS = {
 SIMPLE_COMMANDS = {
     ("order", "cancel_all"): cmd_order_cancel_all,
     ("order", "close_all"): cmd_order_close_all,
+    ("account", "mode"): cmd_account_mode,
+    ("account", "collateral"): cmd_account_collateral,
     ("funds", "withdraw"): cmd_funds_withdraw,
     ("funds", "transfer"): cmd_funds_transfer,
 }
