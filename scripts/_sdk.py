@@ -32,6 +32,7 @@ _PY_TAG = f"py{sys.version_info.major}.{sys.version_info.minor}"
 VENDOR_DIR = os.path.join(_SKILL_DIR, ".vendor", _PY_TAG)
 LOCKFILE = os.path.join(_SKILL_DIR, "requirements.lock")
 DEFAULT_HOST = "https://mainnet.zklighter.elliot.ai"
+AGENT_KIT_VERSION = "0.1.0"
 _CREDENTIALS = None
 
 # Keys whose values must never appear in logs, tracebacks, or agent output.
@@ -280,3 +281,44 @@ def ensure_lighter():
             )
         )
         sys.exit(1)
+
+
+def _resolve_sdk_version():
+    """Return the installed `lighter-sdk` distribution version, falling back to
+    the in-module `lighter.__version__` (which can lag the package metadata)
+    and finally `unknown`. Pure resolution; never raises.
+    """
+    try:
+        from importlib.metadata import version, PackageNotFoundError
+    except ImportError:
+        from importlib_metadata import version, PackageNotFoundError  # type: ignore[no-redef]
+    try:
+        return version("lighter-sdk")
+    except PackageNotFoundError:
+        pass
+    try:
+        import lighter
+        return getattr(lighter, "__version__", "unknown") or "unknown"
+    except Exception:
+        return "unknown"
+
+
+def user_agent():
+    """`User-Agent` value identifying agent-kit traffic on the server side.
+
+    Format follows RFC 7231: ``lighter-agent-kit/<version> lighter-python/<sdk>``.
+    Computed lazily because resolving the SDK version requires the vendored
+    install to be on `sys.path`, which only happens after `ensure_lighter()`.
+    """
+    return f"lighter-agent-kit/{AGENT_KIT_VERSION} lighter-python/{_resolve_sdk_version()}"
+
+
+def tag_api_client(api_client):
+    """Brand outgoing HTTP requests so the server can attribute traffic to the
+    agent kit. Idempotent — safe to apply more than once.
+
+    Pass the `lighter.ApiClient` instance directly, or `signer.api_client` for
+    a `SignerClient`. Returns the same client for fluent use.
+    """
+    api_client.user_agent = user_agent()
+    return api_client
